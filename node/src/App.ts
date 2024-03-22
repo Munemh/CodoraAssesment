@@ -10,7 +10,7 @@ import addErrorHandler from './middleware/error-handler';
 
 export default class App {
 	public express: express.Application;
-
+	private userData: { [key: string]: string } = {}; 
 	public httpServer: http.Server;
 
 	public async init(): Promise<void> {
@@ -39,6 +39,8 @@ export default class App {
 	private routes(): void {
 		this.express.get('/', this.basePathRoute);
 		this.express.get('/web', this.parseRequestHeader, this.basePathRoute);
+		this.express.post('/registerUser', this.parseRequestHeader, this.registerUser);
+		this.express.get('/getUser', this.parseRequestHeader, this.getUserData);
 		this.express.use('/', registerRoutes());
 	}
 
@@ -81,6 +83,56 @@ export default class App {
 	): void {
 		response.json({ message: 'base path' });
 	}
+
+	private async registerUser(
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+): Promise<void> {
+    try {
+        const { email, username, password, confirmPassword } = req.body;
+        
+        // Perform validation checks
+        if (!email || !username || !password || !confirmPassword) {
+             res.status(400).json({ error: 'Please provide all required fields' });
+        }
+
+        if (password !== confirmPassword) {
+             res.status(400).json({ error: 'Passwords do not match' });
+        }
+
+				this.userData.email = email;
+				this.userData.username = username;
+				this.userData.password = password;
+        // Return success message
+        res.json({ message: 'User registered successfully' });
+    } catch (error) {
+        next(error); // Pass error to error handler middleware
+    }
+}
+
+private getUserData(
+		req: express.Request,
+		res: express.Response
+): void {
+		try {
+				// Retrieve data from in-memory storage
+				const { email, username, password } = this.userData;
+
+				res.json({ email, username, password });
+		} catch (error) {
+				console.error('Error retrieving user data:', error);
+				res.status(500).json({ error: 'Internal server error' });
+		}
+}
+
+public start(port: number): void {
+		this.express.listen(port, () => {
+				console.log(`Server is running on port ${port}`);
+		});
+}
+
+
 
 	private setupSwaggerDocs(): void {
 		this.express.use(
